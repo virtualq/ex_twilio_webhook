@@ -24,7 +24,7 @@ defmodule ExTwilioWebhook.Plug do
   end
 
   @impl true
-  def init(opts \\ []) do
+  def init(opts) when is_list(opts) do
     at = Keyword.fetch!(opts, :at)
     path_info = String.split(at, "/", trim: true)
     secret = Keyword.fetch!(opts, :secret)
