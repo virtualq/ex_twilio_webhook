@@ -19,7 +19,7 @@ defmodule ExTwilioWebhook.HashHelpers do
     |> Enum.join()
   end
 
-  def build_url_with_standard_port(url) when is_binary(url) do
+  def add_port(url) when is_binary(url) do
     parsed = URI.parse(url)
 
     normalized_host =
@@ -48,5 +48,22 @@ defmodule ExTwilioWebhook.HashHelpers do
       normalized_query,
       normalized_fragment
     ])
+  end
+
+  def remove_port(url) when is_binary(url) do
+    url
+    |> URI.parse()
+    |> Map.put(:port, nil)
+    |> URI.to_string()
+  end
+
+  @signature_key "bodySHA256"
+
+  def get_sha_hash_from_url(url) when is_binary(url) do
+    url
+    |> URI.parse()
+    |> Map.get(:query)
+    |> URI.decode_query()
+    |> Map.get(@signature_key)
   end
 end
