@@ -66,4 +66,37 @@ defmodule ExTwilioWebhook.HashHelpers do
     |> URI.decode_query()
     |> Map.get(@signature_key)
   end
+
+  def validate_request_with_body(auth_token, signature, url, body)
+      when is_binary(auth_token) and is_binary(signature) and is_binary(url) and is_binary(body) do
+    case get_sha_hash_from_url(url) do
+      nil ->
+        # URL encoded body
+        params = parse_and_sort_urlencoded_body(body)
+        validate_url(auth_token, signature, url, params)
+
+      sha_hash ->
+        validate_url(auth_token, signature, url) &&
+          validate_json_body(body, sha_hash)
+    end
+  end
+
+  def validate_url(auth_token, signature, url, params \\ []) do
+    signature_with_port = get_expected_twilio_signature(auth_token, add_port(url), params)
+    signature_without_port = get_expected_twilio_signature(auth_token, remove_port(url), params)
+    signature_with_port == signature || signature_without_port == signature
+  end
+
+  def validate_json_body(body, expected_signature)
+      when is_binary(body) and is_binary(expected_signature) do
+    digest = :crypto.hash(:sha256, body)
+    Base.encode16(digest, case: :lower) == expected_signature
+  end
+
+  @spec parse_and_sort_urlencoded_body(body :: binary()) :: [binary()]
+  def parse_and_sort_urlencoded_body(body) when is_binary(body) do
+    body
+    |> URI.decode_query()
+    |> Enum.map(fn {key, value} -> key <> value end)
+  end
 end
