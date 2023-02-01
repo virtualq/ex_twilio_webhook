@@ -51,10 +51,10 @@ defmodule ExTwilioWebhook.Plug do
   def call(conn, _settings), do: conn
 
   def validate_webhook(
-        %Plug.Conn{params: %{"AccountSid" => account_sid}} = conn,
+        %Plug.Conn{params: params} = conn,
         %Settings{} = settings
       ) do
-    secret = get_twilio_token!(settings.secret, account_sid)
+    secret = get_twilio_token!(settings.secret, Map.get(params, "AccountSid"))
     url = normalize_url(settings.public_host, conn)
 
     with [signature] <- get_req_header(conn, "x-twilio-signature"),
