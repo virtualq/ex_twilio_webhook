@@ -12,11 +12,6 @@ defmodule ExTwilioWebhook.PlugTest do
     assert after_conn == before_conn
   end
 
-  @valid_body_signature "0a1ff7634d9ab3b95db5c9a2dfe9416e41502b283a80c7cf19632632f96e6620"
-  @json_body ~s[{"property": "value", "boolean": true}]
-  @uri URI.parse("https://mycompany.com/myapp.php?foo=1&bar=2")
-  @path @uri.path <> "?" <> @uri.query <> "&bodySHA256=#{@valid_body_signature}"
-
   @parser_opts [
     parsers: [:json, :urlencoded],
     json_decoder: Jason,
@@ -25,12 +20,22 @@ defmodule ExTwilioWebhook.PlugTest do
   @init Plug.Parsers.init(@parser_opts)
 
   test "lets request through when signature matches" do
-    opts = WebhookPlug.init(at: "/myapp.php", public_host: @public_host, secret: "12345")
+    opts =
+      WebhookPlug.init(
+        at: "/twilio/conference_status",
+        public_host: "https://0447-85-232-252-1.eu.ngrok.io",
+        secret: "c73504dac708a5cd9f57e80c747bb488"
+      )
+
+    path = "/twilio/conference_status?waiter_id=42"
+
+    body =
+      "AccountSid=ACe497b94cea336b5d573d9667ffda50bf&AddOns=%7B+%22status%22%3A+%22successful%22%2C+%22message%22%3A+null%2C+%22code%22%3A+null%2C+%22results%22%3A+%7B+%7D+%7D&ApiVersion=2010-04-01&From=%2B15017122661&FromCity=SAN+FRANCISCO&FromCountry=US&FromState=CA&FromZip=94903&To=%2B15558675310&ToCity=SAN+FRANCISCO&ToCountry=US&ToState=CA&ToZip=94105&Body=Ahoy&MessageSid=SMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&NumMedia=0&NumSegments=1&ReferralNumMedia=0&SmsMessageSid=SMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&SmsSid=SMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&SmsStatus=received"
 
     conn =
-      conn(:post, @path, @json_body)
-      |> Plug.Conn.put_req_header("x-twilio-signature", "a9nBmqA0ju/hNViExpshrM61xv4=")
-      |> Plug.Conn.put_req_header("content-type", "application/json")
+      conn(:post, path, body)
+      |> Plug.Conn.put_req_header("x-twilio-signature", "cN6s/ajWzahiBNHjFpssnkbSQSM=")
+      |> Plug.Conn.put_req_header("content-type", "application/x-www-form-urlencoded")
       |> Plug.Parsers.call(@init)
 
     conn = WebhookPlug.call(conn, opts)

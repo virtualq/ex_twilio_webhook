@@ -58,7 +58,7 @@ defmodule ExTwilioWebhook.Plug do
     url = normalize_url(settings.public_host, conn)
 
     with [signature] <- get_req_header(conn, "x-twilio-signature"),
-         %{raw_body: payload} <- dbg(conn.private),
+         %{raw_body: payload} <- conn.private,
          true <-
            HashHelpers.validate_request_with_body(secret, signature, url, payload) do
       conn
