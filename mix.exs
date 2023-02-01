@@ -21,7 +21,8 @@ defmodule ExTwilioWebhook.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:plug, "~> 1.0"}
+      {:plug, "~> 1.0"},
+      {:jason, "~> 1.0"}
     ]
   end
 end
