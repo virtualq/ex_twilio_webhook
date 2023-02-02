@@ -22,6 +22,27 @@ defmodule ExTwilioWebhook.Plug do
     defstruct [:secret, :path_pattern, :public_host]
   end
 
+  @doc """
+  Parses the plug's configuration options:
+
+  - `at`: the request path at which the plug will validate webhook signatures.
+    When given a string, it will only match if the `request_path`
+    is equal to the pattern. When given a regular expression, it will match if
+    the regular expression matches the `request_path`.
+
+  - `secret`: Twilio secret. The secret can be provided as a string, an `{m, f, a}`
+    tuple, or an anonymous function of arity 0 or 1. When given a 1-arity function,
+    the function will be called with the value of the `AccountSid` of each request.
+    This is useful if your application needs to process webhooks from multiple
+    Twilo accounts. When given an `{m, f, a}` tuple, the tuple will be called
+    at runtime for each request.
+
+  - `public_host`: The public URL of your application with scheme, e. g.:
+    `https://myapp.com`. Can be provided as string or `{m, f, a}` tuple.
+    When given a tuple, the tuple will be called at runtime for each request.
+
+  This function will raise if called with invalid arguments.
+  """
   @impl true
   def init(opts) when is_list(opts) do
     path_pattern = opts |> Keyword.get(:at) |> validate_path_pattern()
@@ -35,6 +56,10 @@ defmodule ExTwilioWebhook.Plug do
     }
   end
 
+  @doc """
+  Checks whether a request matches the given path pattern and passes it through
+  if it doesn't.
+  """
   @impl true
   def call(%Plug.Conn{request_path: pattern} = conn, %Settings{path_pattern: pattern} = settings) do
     validate_webhook(conn, settings)
@@ -50,13 +75,20 @@ defmodule ExTwilioWebhook.Plug do
 
   def call(conn, _settings), do: conn
 
+  @doc """
+  Does the actual webhook validation.
+  """
   def validate_webhook(
         %Plug.Conn{params: params} = conn,
         %Settings{} = settings
       ) do
+    # resolve twilio secret token for the request's `AccountSid`
     secret = get_twilio_token!(settings.secret, Map.get(params, "AccountSid"))
-    url = normalize_url(settings.public_host, conn)
 
+    # normalize request path to Twilio's canonical form
+    url = normalize_request_url(settings.public_host, conn)
+
+    # extract signature and raw body from the conn, and validate the signature
     with [signature] <- get_req_header(conn, "x-twilio-signature"),
          %{raw_body: payload} <- conn.private,
          true <-
@@ -76,6 +108,41 @@ defmodule ExTwilioWebhook.Plug do
     |> send_resp(403, "Twilio Request Validation Failed.")
     |> halt()
   end
+
+  # Helper functions for request signature validation
+
+  defp normalize_request_url({m, f, a}, %Plug.Conn{} = conn) do
+    host = apply(m, f, a)
+    normalize_request_url(host, conn)
+  end
+
+  defp normalize_request_url(public_host, %Plug.Conn{} = conn) do
+    normalized_query =
+      case conn.query_string do
+        blank when blank in ["", nil] -> ""
+        query -> "?#{query}"
+      end
+
+    public_host <> conn.request_path <> normalized_query
+  end
+
+  def path_matched?(path, %Regex{} = regex) do
+    String.match?(path, regex)
+  end
+
+  def path_matched?(pattern, pattern), do: true
+  def path_matched?(_, _), do: false
+
+  defp get_twilio_token!({m, f, a}, _account_sid), do: apply(m, f, a)
+  defp get_twilio_token!(fun, _account_sid) when is_function(fun, 0), do: fun.()
+
+  defp get_twilio_token!(fun, account_sid) when is_function(fun, 1) do
+    fun.(account_sid)
+  end
+
+  defp get_twilio_token!(token, _account_sid) when is_binary(token), do: token
+
+  # Helper functions for parsing configuration options
 
   defp validate_path_pattern(string) when is_binary(string), do: string
   defp validate_path_pattern(%Regex{} = regex), do: regex
@@ -108,18 +175,19 @@ defmodule ExTwilioWebhook.Plug do
   end
 
   defp validate_public_url(value) do
-    if normalized = normalize_url(value) do
+    if normalized = normalize_public_url(value) do
       normalized
     else
       raise """
       The public url given to #{inspect(__MODULE__)} is invalid.
-      Expected a fully qualified URL, e. g. `https://mycompany.com`.
+      Expected a fully qualified URL, e. g. `https://mycompany.com`,
+      or a `{module, function, args}` tuple.
       Got: #{inspect(value)}
       """
     end
   end
 
-  defp normalize_url(url) when is_binary(url) do
+  defp normalize_public_url(url) when is_binary(url) do
     case URI.parse(url) do
       %URI{scheme: scheme, host: host}
       when scheme in ["http", "https"] and is_binary(host) ->
@@ -130,31 +198,9 @@ defmodule ExTwilioWebhook.Plug do
     end
   end
 
-  defp normalize_url(_), do: false
-
-  def path_matched?(path, %Regex{} = regex) do
-    String.match?(path, regex)
+  defp normalize_public_url({m, f, a}) when is_atom(m) and is_atom(f) and is_list(a) do
+    {m, f, a}
   end
 
-  def path_matched?(pattern, pattern), do: true
-  def path_matched?(_, _), do: false
-
-  defp get_twilio_token!({m, f, a}, _account_sid), do: apply(m, f, a)
-  defp get_twilio_token!(fun, _account_sid) when is_function(fun, 0), do: fun.()
-
-  defp get_twilio_token!(fun, account_sid) when is_function(fun, 1) do
-    fun.(account_sid)
-  end
-
-  defp get_twilio_token!(token, _account_sid) when is_binary(token), do: token
-
-  defp normalize_url(public_host, %Plug.Conn{} = conn) do
-    normalized_query =
-      case conn.query_string do
-        blank when blank in ["", nil] -> ""
-        query -> "?#{query}"
-      end
-
-    public_host <> conn.request_path <> normalized_query
-  end
+  defp normalize_public_url(_), do: false
 end
