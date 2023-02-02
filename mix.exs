@@ -7,7 +7,10 @@ defmodule ExTwilioWebhook.MixProject do
       version: "0.1.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      description:
+        "ExTwilioWebhook is a simple library that validates Twilio webhooks in Plug applications.",
+      package: package()
     ]
   end
 
@@ -23,6 +26,15 @@ defmodule ExTwilioWebhook.MixProject do
     [
       {:plug, "~> 1.0"},
       {:jason, "~> 1.0"}
+    ]
+  end
+
+  defp package do
+    [
+      licenses: ["BSD-3-Clause"],
+      links: %{
+        "Github" => "https://github.com/moroz/ex_twilio_webhook"
+      }
     ]
   end
 end
