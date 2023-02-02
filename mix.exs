@@ -4,7 +4,7 @@ defmodule ExTwilioWebhook.MixProject do
   def project do
     [
       app: :ex_twilio_webhook,
-      version: "0.1.0",
+      version: "0.0.1",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -25,7 +25,8 @@ defmodule ExTwilioWebhook.MixProject do
   defp deps do
     [
       {:plug, "~> 1.0"},
-      {:jason, "~> 1.0"}
+      {:jason, "~> 1.0"},
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 
