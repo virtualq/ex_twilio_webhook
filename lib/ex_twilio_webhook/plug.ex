@@ -123,8 +123,6 @@ defmodule ExTwilioWebhook.Plug do
         query -> "?#{query}"
       end
 
-    IO.inspect(conn)
-
     public_host <> conn.request_path <> normalized_query
   end
 
