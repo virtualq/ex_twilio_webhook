@@ -108,4 +108,15 @@ defmodule ExTwilioWebhook.PlugTest do
       assert conn.halted
     end
   end
+
+  describe "normalize_request_url/2" do
+    test "normalizes url to host+path+query+fragment" do
+      path = "/twilio/conference_status.xml?waiter_id=38#rc=5&rp=all&sni=y"
+
+      conn = conn(:post, path, "")
+
+      actual = WebhookPlug.normalize_request_url(@public_host, conn)
+      assert actual == "#{@public_host}#{path}"
+    end
+  end
 end

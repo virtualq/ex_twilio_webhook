@@ -111,12 +111,12 @@ defmodule ExTwilioWebhook.Plug do
 
   # Helper functions for request signature validation
 
-  defp normalize_request_url({m, f, a}, %Plug.Conn{} = conn) do
+  def normalize_request_url({m, f, a}, %Plug.Conn{} = conn) do
     host = apply(m, f, a)
     normalize_request_url(host, conn)
   end
 
-  defp normalize_request_url(public_host, %Plug.Conn{} = conn) do
+  def normalize_request_url(public_host, %Plug.Conn{} = conn) do
     normalized_query =
       case conn.query_string do
         blank when blank in ["", nil] -> ""
