@@ -65,10 +65,12 @@ defmodule ExTwilioWebhook.HashHelpers do
   @signature_key "bodySHA256"
 
   def get_sha_hash_from_url(url) when is_binary(url) do
-    url
-    |> URI.parse()
-    |> Map.get(:query, "")
-    |> URI.decode_query()
+    query =
+      url
+      |> URI.parse()
+      |> Map.get(:query)
+
+    URI.decode_query(query || "")
     |> Map.get(@signature_key)
   end
 
