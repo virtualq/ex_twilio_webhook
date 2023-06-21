@@ -14,7 +14,7 @@ defmodule ExTwilioWebhook.Plug do
 
   defmodule Settings do
     @type t :: %__MODULE__{
-            secret: String.t() | mfa() | function(),
+            secret: String.t() | [String.t()] | mfa() | function(),
             path_pattern: [String.t()],
             public_host: String.t() | mfa()
           }
@@ -30,12 +30,12 @@ defmodule ExTwilioWebhook.Plug do
     is equal to the pattern. When given a regular expression, it will match if
     the regular expression matches the `request_path`.
 
-  - `secret`: Twilio secret. The secret can be provided as a string, an `{m, f, a}`
-    tuple, or an anonymous function of arity 0 or 1. When given a 1-arity function,
-    the function will be called with the value of the `AccountSid` of each request.
-    This is useful if your application needs to process webhooks from multiple
-    Twilo accounts. When given an `{m, f, a}` tuple, the tuple will be called
-    at runtime for each request.
+  - `secret`: Twilio secret. The secret can be provided as a string, a list of strings,
+    an `{m, f, a}` tuple, or an anonymous function of arity 0 or 1.
+    When given a 1-arity function, the function will be called with the value
+    of the `AccountSid` of each request. This is useful if your application
+    needs to process webhooks from multiple Twilo accounts. When given an `{m, f, a}`
+    tuple, the tuple will be `apply`-ed at runtime for each request.
 
   - `public_host`: The public URL of your application with scheme, e. g.:
     `https://myapp.com`. Can be provided as string or `{m, f, a}` tuple.
@@ -140,7 +140,9 @@ defmodule ExTwilioWebhook.Plug do
     fun.(account_sid)
   end
 
-  defp get_twilio_token!(token, _account_sid) when is_binary(token), do: token
+  defp get_twilio_token!(token_or_list, _account_sid)
+       when is_binary(token_or_list) or is_list(token_or_list),
+       do: token_or_list
 
   # Helper functions for parsing configuration options
 
@@ -165,11 +167,21 @@ defmodule ExTwilioWebhook.Plug do
 
   defp validate_secret(token) when is_binary(token), do: token
 
-  defp validate_secret(value) do
+  defp validate_secret(list) when is_list(list) do
+    if Enum.all?(list, &is_binary/1) do
+      list
+    else
+      raise_secret_validation_error(list)
+    end
+  end
+
+  defp validate_secret(other), do: raise_secret_validation_error(other)
+
+  defp raise_secret_validation_error(value) do
     raise """
     The secret given to #{inspect(__MODULE__)} is invalid.
     Expected a `{module, function, args}` tuple, a 0-arity function,
-    a 1-arity function, or a string.
+    a 1-arity function, a string, or a list of strings.
     Got: #{inspect(value)}
     """
   end

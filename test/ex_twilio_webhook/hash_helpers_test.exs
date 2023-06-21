@@ -62,6 +62,19 @@ defmodule ExTwilioWebhook.HashHelpersTest do
              )
     end
 
+    test "returns true for valid JSON body and signature with array of auth_tokens" do
+      request_url_with_hash = "#{@url}&bodySHA256=#{@valid_body_signature}"
+      request_signature = "a9nBmqA0ju/hNViExpshrM61xv4="
+      tokens = ["invalid", "12345"]
+
+      assert HashHelpers.validate_request_with_body(
+               tokens,
+               request_signature,
+               request_url_with_hash,
+               @json_body
+             )
+    end
+
     test "returns false for JSON body with invalid body signature" do
       request_url_with_hash = "#{@url}&bodySHA256=#{@invalid_body_signature}"
       request_signature = "a9nBmqA0ju/hNViExpshrM61xv4="
