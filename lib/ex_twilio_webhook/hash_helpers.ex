@@ -4,11 +4,17 @@ defmodule ExTwilioWebhook.HashHelpers do
   data encoded as JSON or `application/x-www-form-urlencoded`.
   """
 
+  @spec hmac_sha1_base64(key :: binary(), data :: binary()) :: String.t()
   def hmac_sha1_base64(key, data) when is_binary(key) and is_binary(data) do
     digested = :crypto.mac(:hmac, :sha, key, data)
     Base.encode64(digested)
   end
 
+  @spec get_expected_twilio_signature(
+          auth_token :: String.t(),
+          url :: String.t(),
+          params :: String.t() | [String.t()] | %{binary() => term()}
+        ) :: String.t()
   def get_expected_twilio_signature(auth_token, url, params)
       when is_binary(auth_token) and is_binary(url) do
     data = url <> normalize_data(params)
@@ -24,6 +30,7 @@ defmodule ExTwilioWebhook.HashHelpers do
     |> Enum.join()
   end
 
+  @spec add_port(url :: String.t()) :: String.t()
   def add_port(url) when is_binary(url) do
     parsed = URI.parse(url)
 
@@ -55,6 +62,7 @@ defmodule ExTwilioWebhook.HashHelpers do
     ])
   end
 
+  @spec remove_port(url :: String.t()) :: String.t()
   def remove_port(url) when is_binary(url) do
     url
     |> URI.parse()
@@ -64,6 +72,7 @@ defmodule ExTwilioWebhook.HashHelpers do
 
   @signature_key "bodySHA256"
 
+  @spec get_sha_hash_from_url(url :: String.t()) :: binary() | nil
   def get_sha_hash_from_url(url) when is_binary(url) do
     query =
       url
@@ -74,6 +83,8 @@ defmodule ExTwilioWebhook.HashHelpers do
     |> Map.get(@signature_key)
   end
 
+  @spec validate_request_with_body(String.t(), String.t() | [String.t()], String.t(), binary()) ::
+          boolean()
   def validate_request_with_body(auth_token, signature, url, body)
       when is_binary(auth_token) and is_binary(signature) and is_binary(url) and is_binary(body) do
     case get_sha_hash_from_url(url) do
@@ -88,12 +99,20 @@ defmodule ExTwilioWebhook.HashHelpers do
     end
   end
 
-  def validate_url(auth_token, signature, url, params \\ []) do
+  @spec validate_url(
+          auth_token :: String.t(),
+          signature :: String.t(),
+          url :: String.t(),
+          params :: keyword()
+        ) :: boolean()
+  def validate_url(auth_token, signature, url, params \\ [])
+      when is_binary(auth_token) and is_binary(signature) do
     signature_with_port = get_expected_twilio_signature(auth_token, add_port(url), params)
     signature_without_port = get_expected_twilio_signature(auth_token, remove_port(url), params)
     signature_with_port == signature || signature_without_port == signature
   end
 
+  @spec validate_json_body(body :: binary(), expected_signature :: binary()) :: boolean()
   def validate_json_body(body, expected_signature)
       when is_binary(body) and is_binary(expected_signature) do
     digest = :crypto.hash(:sha256, body)
