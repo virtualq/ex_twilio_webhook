@@ -85,7 +85,12 @@ defmodule ExTwilioWebhook.HashHelpers do
     |> Map.get(@signature_key)
   end
 
-  @spec validate_request_with_body(String.t(), String.t() | [String.t()], String.t(), binary()) ::
+  @spec validate_request_with_body(
+          auth_token :: String.t() | [String.t()],
+          signature :: String.t(),
+          url :: String.t(),
+          body :: binary()
+        ) ::
           boolean()
   def validate_request_with_body(auth_token, signature, url, body)
       when is_binary_or_list(auth_token) and is_binary(signature) and is_binary(url) and
@@ -103,7 +108,7 @@ defmodule ExTwilioWebhook.HashHelpers do
   end
 
   @spec validate_url(
-          auth_token :: String.t(),
+          auth_token :: String.t() | [String.t()],
           signature :: String.t(),
           url :: String.t(),
           params :: keyword()

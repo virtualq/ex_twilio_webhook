@@ -90,12 +90,83 @@ defmodule ExTwilioWebhook.PlugTest do
       refute conn.halted
     end
 
-    test "halts the request when signature is invalid" do
+    test "lets request through when signature matches and with a list of auth tokens" do
+      tokens = [
+        "bf0a3ff1ce8cdece9a76432e52659ff6",
+        "c73504dac708a5cd9f57e80c747bb488"
+      ]
+
+      opts =
+        WebhookPlug.init(
+          at: "/twilio/conference_status",
+          public_host: "https://0447-85-232-252-1.eu.ngrok.io",
+          secret: tokens
+        )
+
+      conn =
+        conn(:post, @path, @body)
+        |> Plug.Conn.put_req_header("x-twilio-signature", "cN6s/ajWzahiBNHjFpssnkbSQSM=")
+        |> Plug.Conn.put_req_header("content-type", "application/x-www-form-urlencoded")
+        |> Plug.Parsers.call(@init)
+        |> WebhookPlug.call(opts)
+
+      refute conn.halted
+    end
+
+    test "lets request through when signature matches and with a function returning list of tokens" do
+      tokens = [
+        "bf0a3ff1ce8cdece9a76432e52659ff6",
+        "c73504dac708a5cd9f57e80c747bb488"
+      ]
+
+      secret_fun = fn _ -> tokens end
+
+      opts =
+        WebhookPlug.init(
+          at: "/twilio/conference_status",
+          public_host: "https://0447-85-232-252-1.eu.ngrok.io",
+          secret: secret_fun
+        )
+
+      conn =
+        conn(:post, @path, @body)
+        |> Plug.Conn.put_req_header("x-twilio-signature", "cN6s/ajWzahiBNHjFpssnkbSQSM=")
+        |> Plug.Conn.put_req_header("content-type", "application/x-www-form-urlencoded")
+        |> Plug.Parsers.call(@init)
+        |> WebhookPlug.call(opts)
+
+      refute conn.halted
+    end
+
+    test "halts the request when signature is invalid with a single auth token" do
       opts =
         WebhookPlug.init(
           at: "/twilio/conference_status",
           public_host: "https://0447-85-232-252-1.eu.ngrok.io",
           secret: "c73504dac708a5cd9f57e80c747bb488"
+        )
+
+      conn =
+        conn(:post, @path, @body)
+        |> Plug.Conn.put_req_header("x-twilio-signature", "cN6s/bbbzahiBNHjFpssnkbSQSM=")
+        |> Plug.Conn.put_req_header("content-type", "application/x-www-form-urlencoded")
+        |> Plug.Parsers.call(@init)
+        |> WebhookPlug.call(opts)
+
+      assert conn.halted
+    end
+
+    test "halts the request when signature is invalid with a list of auth tokens" do
+      tokens = [
+        "bf0a3ff1ce8cdece9a76432e52659ff6",
+        "c73504dac708a5cd9f57e80c747bb488"
+      ]
+
+      opts =
+        WebhookPlug.init(
+          at: "/twilio/conference_status",
+          public_host: "https://0447-85-232-252-1.eu.ngrok.io",
+          secret: tokens
         )
 
       conn =
