@@ -14,7 +14,7 @@ defmodule ExTwilioWebhook.Plug do
 
   defmodule Settings do
     @type t :: %__MODULE__{
-            secret: String.t() | mfa() | function(),
+            secret: String.t() | [String.t()] | mfa() | function(),
             path_pattern: [String.t()],
             public_host: String.t() | mfa()
           }
@@ -30,12 +30,12 @@ defmodule ExTwilioWebhook.Plug do
     is equal to the pattern. When given a regular expression, it will match if
     the regular expression matches the `request_path`.
 
-  - `secret`: Twilio secret. The secret can be provided as a string, an `{m, f, a}`
-    tuple, or an anonymous function of arity 0 or 1. When given a 1-arity function,
-    the function will be called with the value of the `AccountSid` of each request.
-    This is useful if your application needs to process webhooks from multiple
-    Twilo accounts. When given an `{m, f, a}` tuple, the tuple will be called
-    at runtime for each request.
+  - `secret`: Twilio secret. The secret can be provided as a string, a list of strings,
+    an `{m, f, a}` tuple, or an anonymous function of arity 0 or 1.
+    When given a 1-arity function, the function will be called with the value
+    of the `AccountSid` of each request. This is useful if your application
+    needs to process webhooks from multiple Twilo accounts. When given an `{m, f, a}`
+    tuple, the tuple will be `apply`-ed at runtime for each request.
 
   - `public_host`: The public URL of your application with scheme, e. g.:
     `https://myapp.com`. Can be provided as string or `{m, f, a}` tuple.
