@@ -16,10 +16,11 @@ defmodule ExTwilioWebhook.Plug do
     @type t :: %__MODULE__{
             secret: String.t() | [String.t()] | mfa() | function(),
             path_pattern: [String.t()],
-            public_host: String.t() | mfa()
+            public_host: String.t() | mfa(),
+            raw_body: function() | nil
           }
 
-    defstruct [:secret, :path_pattern, :public_host]
+    defstruct [:secret, :path_pattern, :public_host, :raw_body]
   end
 
   @doc """
@@ -41,6 +42,11 @@ defmodule ExTwilioWebhook.Plug do
     `https://myapp.com`. Can be provided as string or `{m, f, a}` tuple.
     When given a tuple, the tuple will be called at runtime for each request.
 
+  - `raw_body`: An optional function for fetching the raw body from a conn.
+    by default the raw body is cached at conn.private.raw_body if using
+    `ExTwilioWebhook.BodyReader` if it is stored somewhere else, this can
+    be used to fetch that.
+
   This function will raise if called with invalid arguments.
   """
   @impl true
@@ -48,11 +54,13 @@ defmodule ExTwilioWebhook.Plug do
     path_pattern = opts |> Keyword.get(:at) |> validate_path_pattern()
     secret = opts |> Keyword.get(:secret) |> validate_secret()
     public_host = opts |> Keyword.get(:public_host) |> validate_public_url()
+    raw_body = opts |> Keyword.get(:raw_body) |> validate_raw_body()
 
     %Settings{
       path_pattern: path_pattern,
       secret: secret,
-      public_host: public_host
+      public_host: public_host,
+      raw_body: raw_body
     }
   end
 
@@ -90,7 +98,7 @@ defmodule ExTwilioWebhook.Plug do
 
     # extract signature and raw body from the conn, and validate the signature
     with [signature] <- get_req_header(conn, "x-twilio-signature"),
-         %{raw_body: payload} <- conn.private,
+         payload = get_raw_body(settings.raw_body, conn),
          true <-
            HashHelpers.validate_request_with_body(secret, signature, url, payload) do
       conn
@@ -144,6 +152,9 @@ defmodule ExTwilioWebhook.Plug do
        when is_binary(token_or_list) or is_list(token_or_list),
        do: token_or_list
 
+  defp get_raw_body(fun, conn) when is_function(fun, 1), do: fun.(conn)
+  defp get_raw_body(_fun, conn), do: Map.get(conn.private, :raw_body)
+
   # Helper functions for parsing configuration options
 
   defp validate_path_pattern(string) when is_binary(string), do: string
@@ -182,6 +193,18 @@ defmodule ExTwilioWebhook.Plug do
     The secret given to #{inspect(__MODULE__)} is invalid.
     Expected a `{module, function, args}` tuple, a 0-arity function,
     a 1-arity function, a string, or a list of strings.
+    Got: #{inspect(value)}
+    """
+  end
+
+  defp validate_raw_body(fun) when is_function(fun, 1), do: fun
+
+  defp validate_raw_body(nil), do: nil
+
+  defp validate_raw_body(value) do
+    raise """
+    The raw body function given to #{inspect(__MODULE__)} is invalid.
+    Expected a 1-arity function.
     Got: #{inspect(value)}
     """
   end
