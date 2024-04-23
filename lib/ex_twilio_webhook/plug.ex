@@ -17,7 +17,7 @@ defmodule ExTwilioWebhook.Plug do
             secret: String.t() | [String.t()] | mfa() | function(),
             path_pattern: [String.t()],
             public_host: String.t() | mfa(),
-            raw_body: function() | nil
+            raw_body: function() | mfa() | nil
           }
 
     defstruct [:secret, :path_pattern, :public_host, :raw_body]
@@ -152,6 +152,7 @@ defmodule ExTwilioWebhook.Plug do
        when is_binary(token_or_list) or is_list(token_or_list),
        do: token_or_list
 
+  defp get_raw_body({m, f, a}, conn), do: apply(m, f, [conn | a])
   defp get_raw_body(fun, conn) when is_function(fun, 1), do: fun.(conn)
   defp get_raw_body(_fun, conn), do: Map.get(conn.private, :raw_body)
 
@@ -197,6 +198,10 @@ defmodule ExTwilioWebhook.Plug do
     """
   end
 
+  defp validate_raw_body({m, f, a}) when is_atom(m) and is_atom(f) and is_list(a) do
+    {m, f, a}
+  end
+
   defp validate_raw_body(fun) when is_function(fun, 1), do: fun
 
   defp validate_raw_body(nil), do: nil
@@ -204,7 +209,7 @@ defmodule ExTwilioWebhook.Plug do
   defp validate_raw_body(value) do
     raise """
     The raw body function given to #{inspect(__MODULE__)} is invalid.
-    Expected a 1-arity function.
+    Expected a 1-arity function or an mfa tuple.
     Got: #{inspect(value)}
     """
   end
