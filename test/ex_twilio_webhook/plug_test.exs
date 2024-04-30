@@ -101,7 +101,7 @@ defmodule ExTwilioWebhook.PlugTest do
       refute conn.halted
     end
 
-    test "lets request and handle a raw body in a different location" do
+    test "lets request through and handles raw body passed in a closure" do
       opts =
         WebhookPlug.init(
           at: "/twilio/conference_status",
