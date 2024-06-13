@@ -4,7 +4,7 @@ defmodule ExTwilioWebhook.HashHelpers do
   data encoded as JSON or `application/x-www-form-urlencoded`.
   """
 
-  defguard is_binary_or_list(auth_token) when is_binary(auth_token) or is_list(auth_token)
+  defguard is_binary_or_list(data) when is_binary(data) or is_list(data)
 
   @spec hmac_sha1_base64(key :: binary(), data :: binary()) :: String.t()
   def hmac_sha1_base64(key, data) when is_binary(key) and is_binary(data) do
@@ -89,12 +89,12 @@ defmodule ExTwilioWebhook.HashHelpers do
           auth_token :: String.t() | [String.t()],
           signature :: String.t(),
           url :: String.t(),
-          body :: binary()
+          body :: iodata()
         ) ::
           boolean()
   def validate_request_with_body(auth_token, signature, url, body)
       when is_binary_or_list(auth_token) and is_binary(signature) and is_binary(url) and
-             is_binary(body) do
+             is_binary_or_list(body) do
     case get_sha_hash_from_url(url) do
       nil ->
         # URL encoded body
@@ -131,17 +131,18 @@ defmodule ExTwilioWebhook.HashHelpers do
     end)
   end
 
-  @spec validate_json_body(body :: binary(), expected_signature :: binary()) :: boolean()
+  @spec validate_json_body(body :: iodata(), expected_signature :: binary()) :: boolean()
   def validate_json_body(body, expected_signature)
-      when is_binary(body) and is_binary(expected_signature) do
+      when is_binary_or_list(body) and is_binary(expected_signature) do
     digest = :crypto.hash(:sha256, body)
     hash = Base.encode16(digest, case: :lower)
     Plug.Crypto.secure_compare(hash, expected_signature)
   end
 
   @spec parse_and_sort_urlencoded_body(body :: binary()) :: [binary()]
-  def parse_and_sort_urlencoded_body(body) when is_binary(body) do
+  def parse_and_sort_urlencoded_body(body) when is_binary_or_list(body) do
     body
+    |> IO.iodata_to_binary()
     |> URI.decode_query()
     |> Enum.map(fn {key, value} -> key <> value end)
   end
