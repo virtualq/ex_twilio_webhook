@@ -97,7 +97,7 @@ defmodule ExTwilioWebhook.Plug do
     url = normalize_request_url(settings.public_host, conn)
 
     # extract signature and raw body from the conn, and validate the signature
-    with [signature] <- get_req_header(conn, "x-twilio-signature"),
+    with [signature] <- get_provider_req_header(conn),
          payload = get_raw_body(settings.raw_body, conn),
          true <-
            HashHelpers.validate_request_with_body(secret, signature, url, payload) do
@@ -106,6 +106,10 @@ defmodule ExTwilioWebhook.Plug do
       _ ->
         deny_access(conn)
     end
+  end
+
+  defp get_provider_req_header(conn) do
+    get_req_header(conn, "x-twilio-signature") ||  get_req_header(conn, "x-signalwire-signature")
   end
 
   def validate_webhook(conn, _settings), do: deny_access(conn)
