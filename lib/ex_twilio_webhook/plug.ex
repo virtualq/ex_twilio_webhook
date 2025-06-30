@@ -100,11 +100,11 @@ defmodule ExTwilioWebhook.Plug do
     end
   end
 
+  def validate_webhook(conn, _settings), do: deny_access(conn)
+
   defp get_provider_req_header(conn) do
     get_req_header(conn, "x-twilio-signature") ||  get_req_header(conn, "x-signalwire-signature")
   end
-
-  def validate_webhook(conn, _settings), do: deny_access(conn)
 
   defp deny_access(conn) do
     conn
