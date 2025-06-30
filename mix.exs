@@ -25,7 +25,7 @@ defmodule ExTwilioWebhook.MixProject do
   defp deps do
     [
       {:plug, "~> 1.0"},
-      {:jason, "~> 1.0"},
+      {:jason, "~> 1.0", only: :test},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
