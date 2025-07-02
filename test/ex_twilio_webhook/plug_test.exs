@@ -9,9 +9,13 @@ defmodule ExTwilioWebhook.PlugTest do
     def resolve_public_host do
       "https://mycompany.com"
     end
+
+    def get_path_pattern(pattern) do
+      pattern
+    end
   end
 
-  @mfa {Helpers, :resolve_public_host, []}
+  @host_mfa {Helpers, :resolve_public_host, []}
 
   describe "path matching" do
     test "does not process requests when path doesn't match string pattern exactly" do
@@ -26,6 +30,14 @@ defmodule ExTwilioWebhook.PlugTest do
       before_conn = conn(:post, "/invalid/path", "test body")
       after_conn = WebhookPlug.call(before_conn, opts)
       assert after_conn == before_conn
+    end
+
+    test "processes requests when path is ignored" do
+      opts = WebhookPlug.init(at: :all, public_host: @public_host, secret: "test")
+      before_conn = conn(:post, "/webhook/path", "test body")
+      after_conn = WebhookPlug.call(before_conn, opts)
+      assert after_conn.halted
+      assert after_conn.status >= 400
     end
 
     test "processes requests when path matches string pattern exactly" do
@@ -44,8 +56,50 @@ defmodule ExTwilioWebhook.PlugTest do
       assert after_conn.status >= 400
     end
 
+    test "processes requests when path matches string pattern exactly from MFA" do
+      opts =
+        WebhookPlug.init(
+          at: {Helpers, :get_path_pattern, ["/webhook/twilio"]},
+          public_host: @public_host,
+          secret: "test"
+        )
+
+      before_conn = conn(:post, "/webhook/twilio", "test body")
+      after_conn = WebhookPlug.call(before_conn, opts)
+      assert after_conn.halted
+      assert after_conn.status >= 400
+    end
+
+    test "processes requests when path matches regex pattern from MFA" do
+      opts =
+        WebhookPlug.init(
+          at: {Helpers, :get_path_pattern, [~r"^/webhook"]},
+          public_host: @public_host,
+          secret: "test"
+        )
+
+      before_conn = conn(:post, "/webhook/twilio", "test body")
+      after_conn = WebhookPlug.call(before_conn, opts)
+      assert after_conn.halted
+      assert after_conn.status >= 400
+    end
+
+    test "processes requests when path matches string pattern exactly from callback" do
+      opts =
+        WebhookPlug.init(
+          at: fn -> "/webhook/twilio" end,
+          public_host: @public_host,
+          secret: "test"
+        )
+
+      before_conn = conn(:post, "/webhook/twilio", "test body")
+      after_conn = WebhookPlug.call(before_conn, opts)
+      assert after_conn.halted
+      assert after_conn.status >= 400
+    end
+
     test "processes requests when path matches string pattern exactly with MFA host" do
-      opts = WebhookPlug.init(at: "/webhook/twilio", public_host: @mfa, secret: "test")
+      opts = WebhookPlug.init(at: "/webhook/twilio", public_host: @host_mfa, secret: "test")
       before_conn = conn(:post, "/webhook/twilio", "test body")
       after_conn = WebhookPlug.call(before_conn, opts)
       assert after_conn.halted
@@ -53,7 +107,7 @@ defmodule ExTwilioWebhook.PlugTest do
     end
 
     test "processes requests when path matches regex pattern with MFA host" do
-      opts = WebhookPlug.init(at: ~r"^/webhook", public_host: @mfa, secret: "test")
+      opts = WebhookPlug.init(at: ~r"^/webhook", public_host: @host_mfa, secret: "test")
       before_conn = conn(:post, "/webhook/twilio", "test body")
       after_conn = WebhookPlug.call(before_conn, opts)
       assert after_conn.halted

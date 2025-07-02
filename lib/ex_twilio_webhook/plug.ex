@@ -30,6 +30,12 @@ defmodule ExTwilioWebhook.Plug do
     is equal to the pattern. When given a regular expression, it will match if
     the regular expression matches the `request_path`.
 
+    This can additionally be an MFA tuple or 0 arity function that is evaluated
+    during runtime that must return a string or regex. This is especially useful
+    for getting around Regex issues during compile time.
+
+    If this behaviour, set this to `:all`.
+
   - `secret`: Twilio secret. The secret can be provided as a string, a list of strings,
     an `{m, f, a}` tuple, or an anonymous function of arity 0 or 1.
     When given a 1-arity function, the function will be called with the value
@@ -61,19 +67,25 @@ defmodule ExTwilioWebhook.Plug do
   if it doesn't.
   """
   @impl true
-  def call(%Plug.Conn{request_path: pattern} = conn, %Settings{path_pattern: pattern} = settings) do
-    validate_webhook(conn, settings)
-  end
+  def call(%Plug.Conn{request_path: pattern} = conn, settings) do
+    case get_path_pattern!(settings.path_pattern) do
+      :all ->
+        validate_webhook(conn, settings)
 
-  def call(%Plug.Conn{} = conn, %Settings{path_pattern: %Regex{} = regex} = settings) do
-    if String.match?(conn.request_path, regex) do
-      validate_webhook(conn, settings)
-    else
-      conn
+      ^pattern ->
+        validate_webhook(conn, settings)
+
+      %Regex{} = regex ->
+        if String.match?(conn.request_path, regex) do
+          validate_webhook(conn, settings)
+        else
+          conn
+        end
+
+      _ ->
+        conn
     end
   end
-
-  def call(conn, _settings), do: conn
 
   @doc """
   Does the actual webhook validation.
@@ -137,6 +149,16 @@ defmodule ExTwilioWebhook.Plug do
   def path_matched?(pattern, pattern), do: true
   def path_matched?(_, _), do: false
 
+  defp get_path_pattern!({m, f, a}) do
+    m
+    |> apply(f, a)
+    |> validate_path_pattern()
+  end
+
+  defp get_path_pattern!(fun) when is_function(fun, 0), do: validate_path_pattern(fun.())
+  # Already validated during init
+  defp get_path_pattern!(pattern), do: pattern
+
   defp get_twilio_token!({m, f, a}, _account_sid), do: apply(m, f, a)
   defp get_twilio_token!(fun, _account_sid) when is_function(fun, 0), do: fun.()
 
@@ -150,13 +172,18 @@ defmodule ExTwilioWebhook.Plug do
 
   # Helper functions for parsing configuration options
 
+  defp validate_path_pattern(:all), do: :all
   defp validate_path_pattern(string) when is_binary(string), do: string
   defp validate_path_pattern(%Regex{} = regex), do: regex
+  defp validate_path_pattern(fun) when is_function(fun, 0), do: fun
+
+  defp validate_path_pattern({m, f, a}) when is_atom(m) and is_atom(f) and is_list(a),
+    do: {m, f, a}
 
   defp validate_path_pattern(value) do
     raise """
     The path pattern given to #{inspect(__MODULE__)} is invalid.
-    Expected a string or a regular expression.
+    Expected `:all`, a string, a regular expression, a 0 arity callback, or an Mfa tuple.
     Got: #{inspect(value)}
     """
   end
