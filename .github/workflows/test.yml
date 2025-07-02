@@ -1,0 +1,39 @@
+name: test
+on: push
+
+env:
+  ELIXIR_VERSION: 1.18.4
+  ERLANG_VERSION: 27.3.3
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: action/checkout@v3
+
+      - name: Get deps cache
+        uses: actions/cache@v4
+        with:
+          path: deps/
+          key: deps-${{ runner.os }}-${{ env.ERLANG_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
+
+      - name: Get build cache
+        uses: actions/cache@v4
+        with:
+          path: _build/test/
+          key: build-${{ runner.os }}-${{ env.ERLANG_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ env.ERLANG_VERSION }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+
+      - name: Install Hex
+        run: mix local.hex --force
+
+      - name: Fetch and compile dependencies
+        run: mix do deps.get, compile
+
+      - name: Run tests
+        run: mix test
