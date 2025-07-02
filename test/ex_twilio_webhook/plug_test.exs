@@ -115,12 +115,23 @@ defmodule ExTwilioWebhook.PlugTest do
     end
   end
 
+  def alt_cache_raw_body(conn, opts) do
+    with {:ok, body, conn} <- Plug.Conn.read_body(conn, opts) do
+      conn = update_in(conn.assigns[:raw_body], &[body | &1 || []])
+
+      {:ok, body, conn}
+    end
+  end
+
   @parser_opts [
     parsers: [:json, :urlencoded],
     json_decoder: Jason,
     body_reader: {ExTwilioWebhook.BodyReader, :read_body, []}
   ]
   @init Plug.Parsers.init(@parser_opts)
+  @init_with_different_cache @parser_opts
+                             |> Keyword.put(:body_reader, {__MODULE__, :alt_cache_raw_body, []})
+                             |> Plug.Parsers.init()
 
   describe "with urlencoded payload" do
     @body "AccountSid=ACe497b94cea336b5d573d9667ffda50bf&AddOns=%7B+%22status%22%3A+%22successful%22%2C+%22message%22%3A+null%2C+%22code%22%3A+null%2C+%22results%22%3A+%7B+%7D+%7D&ApiVersion=2010-04-01&From=%2B15017122661&FromCity=SAN+FRANCISCO&FromCountry=US&FromState=CA&FromZip=94903&To=%2B15558675310&ToCity=SAN+FRANCISCO&ToCountry=US&ToState=CA&ToZip=94105&Body=Ahoy&MessageSid=SMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&NumMedia=0&NumSegments=1&ReferralNumMedia=0&SmsMessageSid=SMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&SmsSid=SMaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&SmsStatus=received"
@@ -139,6 +150,25 @@ defmodule ExTwilioWebhook.PlugTest do
         |> Plug.Conn.put_req_header("x-twilio-signature", "cN6s/ajWzahiBNHjFpssnkbSQSM=")
         |> Plug.Conn.put_req_header("content-type", "application/x-www-form-urlencoded")
         |> Plug.Parsers.call(@init)
+        |> WebhookPlug.call(opts)
+
+      refute conn.halted
+    end
+
+    test "lets request through and handles raw body passed in a closure" do
+      opts =
+        WebhookPlug.init(
+          at: "/twilio/conference_status",
+          public_host: "https://0447-85-232-252-1.eu.ngrok.io",
+          secret: "c73504dac708a5cd9f57e80c747bb488",
+          raw_body: fn conn -> conn.assigns.raw_body end
+        )
+
+      conn =
+        conn(:post, @path, @body)
+        |> Plug.Conn.put_req_header("x-twilio-signature", "cN6s/ajWzahiBNHjFpssnkbSQSM=")
+        |> Plug.Conn.put_req_header("content-type", "application/x-www-form-urlencoded")
+        |> Plug.Parsers.call(@init_with_different_cache)
         |> WebhookPlug.call(opts)
 
       refute conn.halted
