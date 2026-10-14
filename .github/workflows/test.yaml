@@ -8,7 +8,11 @@ on:
 jobs:
   build_linux:
     name: Build and test on Linux
-    runs-on: ubuntu-24.04
+    runs-on:
+      - codebuild-gha-runner-ci-arm64-${{ github.run_id }}-${{ github.run_attempt }}
+      - image:custom-arm-937196015336.dkr.ecr.eu-central-1.amazonaws.com/runner-images/ubuntu:noble
+      - test-${{ matrix.otp }}-${{ matrix.elixir }}
+    timeout-minutes: 15
     strategy:
       matrix:
         otp: ['26.2', '27.3', '28.0']
