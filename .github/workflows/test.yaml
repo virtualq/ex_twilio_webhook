@@ -8,10 +8,10 @@ on:
 jobs:
   build_linux:
     name: Build and test on Linux
-    runs-on:
-      - codebuild-gha-runner-ci-arm64-${{ github.run_id }}-${{ github.run_attempt }}
-      - image:custom-arm-937196015336.dkr.ecr.eu-central-1.amazonaws.com/runner-images/ubuntu:noble
-      - test-${{ matrix.otp }}-${{ matrix.elixir }}
+    # This repository is public, and the CodeBuild runners' runner group
+    # refuses public repositories, so a job here never gets a runner and sits
+    # queued. It stays on GitHub's hosted runner (DEBT-1578).
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       matrix:
@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup beam
         uses: erlef/setup-beam@v1
