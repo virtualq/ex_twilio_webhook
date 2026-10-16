@@ -3,7 +3,10 @@ name: Build and Test
 on:
   push:
     branches:
-      - '*'
+      - '**'
+
+permissions:
+  contents: read
 
 jobs:
   build_linux:
