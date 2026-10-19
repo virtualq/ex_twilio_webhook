@@ -3,12 +3,19 @@ name: Build and Test
 on:
   push:
     branches:
-      - '*'
+      - '**'
+
+permissions:
+  contents: read
 
 jobs:
   build_linux:
     name: Build and test on Linux
+    # This repository is public, and the CodeBuild runners' runner group
+    # refuses public repositories, so a job here never gets a runner and sits
+    # queued. It stays on GitHub's hosted runner (DEBT-1578).
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     strategy:
       matrix:
         otp: ['26.2', '27.3', '28.0']
@@ -27,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup beam
         uses: erlef/setup-beam@v1
